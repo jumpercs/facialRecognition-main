@@ -7,22 +7,30 @@ import os
 known_face_encodings = []
 known_face_names = []
 
+import cv2
+import face_recognition as fr
+
 def show_webcam(mirror=False, cam=0):
     # Obter a lista de câmeras disponíveis
-    available_cameras = get_available_cameras()
+    available_cameras = get_available_cameras()  # Assuma que você tenha uma função get_available_cameras() implementada
     print(available_cameras)
     # Usar a primeira câmera disponível
     cam = cv2.VideoCapture(available_cameras[cam])
+
+    # Inicializa o tempo para calcular o FPS
+    start_time = 0
+    frame_count = 0
+
     while True:
         ret_val, img = cam.read()
         if not ret_val:
             break
-        
+
         # Adicionar quadrado ao rosto detectado na imagem e o nome da pessoa se estiver na lista known_face_encodings
         face_locations = fr.face_locations(img)
         face_encodings = fr.face_encodings(img, face_locations)
         for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
-            matches = fr.compare_faces(known_face_encodings, face_encoding)
+            matches = fr.compare_faces(known_face_encodings, face_encoding)  # known_face_encodings e known_face_names devem ser definidos
             name = "Unknown"
             if True in matches:
                 first_match_index = matches.index(True)
@@ -31,6 +39,19 @@ def show_webcam(mirror=False, cam=0):
             cv2.rectangle(img, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
             font = cv2.FONT_HERSHEY_DUPLEX
             cv2.putText(img, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
+
+        # Calcular o frametime e o FPS
+        end_time = cv2.getTickCount()
+        # Tempo de processamento por frame (em segundos)
+        frame_time = (end_time - start_time) / cv2.getTickFrequency()
+        # Atualiza o tempo inicial para o próximo frame
+        start_time = end_time
+        # Aumenta a contagem de frames
+        frame_count += 1
+        # Calcula o FPS
+        fps = 1.0 / frame_time
+        # Mostra o FPS na tela
+        cv2.putText(img, "FPS: {:.2f}".format(fps), (10, 30), font, 1.0, (255, 255, 255), 1)
 
         if mirror:
             img = cv2.flip(img, 1)
@@ -85,9 +106,12 @@ def generate_face_encodings():
     global known_face_encodings, known_face_names
     # Carregar imagens de exemplo na pasta pessoas e armazenar o nome da pessoa em known_face_names e as codificações faciais em known_face_encodings
     for file in os.listdir("pessoas"):
+        print(file)
         if file.endswith(".jpg"):
+            print("Carregando imagem: " + file)
             image = fr.load_image_file("pessoas/" + file)
             face_encoding = fr.face_encodings(image)[0]
+            print(face_encoding)
             known_face_encodings.append(face_encoding)
             known_face_names.append(file.split(".")[0])
 
