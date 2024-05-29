@@ -1,74 +1,63 @@
 import cv2
 import numpy as np
 import face_recognition as fr
+import os
 
+# Definindo variáveis globais
+known_face_encodings = []
+known_face_names = []
 
-
-def show_webcam(mirror=False, cam=1):
-    print("Iniciando webcam")
-    cam = cv2.VideoCapture(1)
-    print(cam.get(cv2.CAP_PROP_FRAME_WIDTH))
+def show_webcam(mirror=False, cam=0):
+    # Obter a lista de câmeras disponíveis
+    available_cameras = get_available_cameras()
+    print(available_cameras)
+    # Usar a primeira câmera disponível
+    cam = cv2.VideoCapture(available_cameras[cam])
     while True:
         ret_val, img = cam.read()
-        print(img.shape)
-
-        #img = cv2.resize(img, (0,0), fx=0.5, fy=0.5)
-        #print(img.shape)
-
+        if not ret_val:
+            break
+        
+        # Adicionar quadrado ao rosto detectado na imagem e o nome da pessoa se estiver na lista known_face_encodings
         face_locations = fr.face_locations(img)
-    
-        print("I found {} face(s) in this photograph.".format(len(face_locations)))
+        face_encodings = fr.face_encodings(img, face_locations)
+        for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
+            matches = fr.compare_faces(known_face_encodings, face_encoding)
+            name = "Unknown"
+            if True in matches:
+                first_match_index = matches.index(True)
+                name = known_face_names[first_match_index]
+            cv2.rectangle(img, (left, top), (right, bottom), (0, 0, 255), 2)
+            cv2.rectangle(img, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
+            font = cv2.FONT_HERSHEY_DUPLEX
+            cv2.putText(img, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
 
-
-        for face_location in face_locations:
-                
-                top, right, bottom, left = face_location
-                print("A face is located at pixel location Top: {}, Left: {}, Bottom: {}, Right: {}".format(top, left, bottom, right))
-    
-                # You can access the actual face itself like this:
-                face_image = img[top:bottom, left:right]
-                cv2.rectangle(img, (left, top), (right, bottom), (0, 0, 255), 2)
-                
-
-                #cv2.imshow('face', face_image)
-                #cv2.waitKey(0)
-                #cv2.destroyAllWindows()
-                #cv2.imshow('face', face_image)
-                #cv2.waitKey(0)
-                #cv2.destroyAllWindows()
-
-
- 
-        if mirror: 
+        if mirror:
             img = cv2.flip(img, 1)
         cv2.imshow('my webcam', img)
-        if cv2.waitKey(1) == 27: 
-            break  # esc to quit
+        if cv2.waitKey(1) == 27:
+            break  # esc para sair
     cv2.destroyAllWindows()
-
+    cam.release()
 
 def get_available_cameras():
-    # try to get a list of all cameras in 5 seconds
+    # Tentar obter uma lista de todas as câmeras em 5 segundos
     index = 0
     arr = []
     while True:
         cap = cv2.VideoCapture(index)
-        print(cap.read())
         if not cap.read()[0]:
             break
         else:
             arr.append(index)
             print("Camera {} is available".format(index))
         cap.release()
-
         index += 1
     return arr
 
-
 def list_ports():
     """
-    Test the ports and returns a tuple with the available ports 
-    and the ones that are working.
+    Testar as portas e retornar uma tupla com as portas disponíveis e as que estão funcionando.
     """
     is_working = True
     dev_port = 0
@@ -78,60 +67,33 @@ def list_ports():
         camera = cv2.VideoCapture(dev_port)
         if not camera.isOpened():
             is_working = False
-            print("Port %s is not working." %dev_port)
+            print("Port %s is not working." % dev_port)
         else:
             is_reading, img = camera.read()
             w = camera.get(3)
             h = camera.get(4)
             if is_reading:
-                print("Port %s is working and reads images (%s x %s)" %(dev_port,h,w))
+                print("Port %s is working and reads images (%s x %s)" % (dev_port, h, w))
                 working_ports.append(dev_port)
             else:
-                print("Port %s for camera ( %s x %s) is present but does not reads." %(dev_port,h,w))
+                print("Port %s for camera (%s x %s) is present but does not read." % (dev_port, h, w))
                 available_ports.append(dev_port)
-        dev_port +=1
-    return available_ports,working_ports
-
-
+        dev_port += 1
+    return available_ports, working_ports
 
 def generate_face_encodings():
-    print("Generating face encodings")
-    cam = cv2.VideoCapture(1)
-    while True:
-        ret_val, img = cam.read()
-        face_locations = fr.face_locations(img)
-        face_encodings = fr.face_encodings(img, face_locations)
-
-        for face_encoding in face_encodings:
-            print(face_encoding)
-            print("Face encoding generated")
-            print("Size: {}".format(len(face_encoding)))
-            print("Type: {}".format(type(face_encoding)))
-            print("Shape: {}".format(face_encoding.shape))
-            print("Dtype: {}".format(face_encoding.dtype))
-            print("Itemsize: {}".format(face_encoding.itemsize))
-            print("Nbytes: {}".format(face_encoding.nbytes))
-            print("Strides: {}".format(face_encoding.strides))
-            print("Flags: {}".format(face_encoding.flags))
-            print("Contiguous: {}".format(face_encoding.flags.contiguous))
-            print("C: {}".format(face_encoding.flags.c_contiguous))
-            print("F: {}".format(face_encoding.flags.f_contiguous))
-            print("O: {}".format(face_encoding.flags.owndata))
-            print("W: {}".format(face_encoding.flags.writeable))
-            print("A: {}".format(face_encoding.flags.aligned) )
-
-        if cv2.waitKey(1) == 27:
-            break
-    cv2.destroyAllWindows()
-    
-
-
-
+    global known_face_encodings, known_face_names
+    # Carregar imagens de exemplo na pasta pessoas e armazenar o nome da pessoa em known_face_names e as codificações faciais em known_face_encodings
+    for file in os.listdir("pessoas"):
+        if file.endswith(".jpg"):
+            image = fr.load_image_file("pessoas/" + file)
+            face_encoding = fr.face_encodings(image)[0]
+            known_face_encodings.append(face_encoding)
+            known_face_names.append(file.split(".")[0])
 
 def main():
+    generate_face_encodings()
     show_webcam()
-
 
 if __name__ == '__main__':
     main()
-

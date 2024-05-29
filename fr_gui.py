@@ -61,8 +61,6 @@ class FaceRecognitionApp:
 
             self.face_names = []
             for face_encoding in self.face_encodings:
-                print('face encoding:', face_encoding)
-                print('known face encodings:', self.known_face_encodings)
                 matches = fr.compare_faces(self.known_face_encodings, face_encoding)
                 name = "Desconhecido"
 
