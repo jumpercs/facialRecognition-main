@@ -4,6 +4,7 @@ import face_recognition as fr
 import os
 import pickle
 from tkinter import Tk, Label, Button, Entry, Canvas, NW, filedialog
+from PIL import Image, ImageTk
 
 class FaceRecognitionApp:
     def __init__(self, master):
@@ -60,6 +61,8 @@ class FaceRecognitionApp:
 
             self.face_names = []
             for face_encoding in self.face_encodings:
+                print('face encoding:', face_encoding)
+                print('known face encodings:', self.known_face_encodings)
                 matches = fr.compare_faces(self.known_face_encodings, face_encoding)
                 name = "Desconhecido"
 
@@ -80,15 +83,14 @@ class FaceRecognitionApp:
             left *= 4
 
             cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
-
             cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
             font = cv2.FONT_HERSHEY_DUPLEX
             cv2.putText(frame, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
 
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        photo = cv2.resize(rgb_frame, (self.camera_width, self.camera_height))
-        self.canvas.photo = photo
+        photo = ImageTk.PhotoImage(image=Image.fromarray(rgb_frame))
         self.canvas.create_image(0, 0, image=photo, anchor=NW)
+        self.canvas.photo = photo
 
     def scan_face(self):
         ret, frame = self.camera.read()
@@ -97,10 +99,13 @@ class FaceRecognitionApp:
             if face_locations:
                 face_encoding = fr.face_encodings(frame, face_locations)[0]
                 name = self.name_entry.get()
-                self.known_face_encodings.append(face_encoding)
-                self.known_face_names.append(name)
-                self.save_known_faces()
-                self.name_entry.delete(0, 'end')
+                if name:  # Ensure name is not empty
+                    self.known_face_encodings.append(face_encoding)
+                    self.known_face_names.append(name)
+                    self.save_known_faces()
+                    self.name_entry.delete(0, 'end')
+                else:
+                    print("Nome não pode ser vazio.")
             else:
                 print("Nenhum rosto detectado.")
         else:
@@ -117,7 +122,7 @@ class FaceRecognitionApp:
             face_locations = fr.face_locations(image)
             if face_locations:
                 face_encoding = fr.face_encodings(image, face_locations)[0]
-                name = os.path.basename(file_path)
+                name = os.path.splitext(os.path.basename(file_path))[0]  # Use the filename without extension as the name
                 self.known_face_encodings.append(face_encoding)
                 self.known_face_names.append(name)
                 self.save_known_faces()
@@ -130,15 +135,14 @@ class FaceRecognitionApp:
                 self.known_face_encodings, self.known_face_names = pickle.load(f)
         except FileNotFoundError:
             print("Arquivo de rostos conhecidos não encontrado.")
+        except EOFError:
+            print("Arquivo de rostos conhecidos está vazio.")
 
     def save_known_faces(self):
         with open("known_faces.dat", "wb") as f:
             pickle.dump((self.known_face_encodings, self.known_face_names), f)
 
-root = Tk()
-
-app = FaceRecognitionApp(root)
-
-root.mainloop()
-
-# This code is a GUI version of the face recognition code. It uses the tkinter library to create a window with a canvas to display the video feed from the camera. It also has buttons to scan a face and load an image for recognition. The face recognition code is similar to the previous snippet, but it processes the frame in the video_loop method and displays the recognized faces on the canvas using the show_frame method. The scan_face and load_image methods allow the user to add new faces to the known_face_encodings list. The load_known_faces and save_known_faces methods load and save the known faces to a file using the pickle library. The main loop of the GUI is started with root.mainloop().
+if __name__ == "__main__":
+    root = Tk()
+    app = FaceRecognitionApp(root)
+    root.mainloop()
